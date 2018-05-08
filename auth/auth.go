@@ -46,7 +46,7 @@ func AddAuthRoutes(r *pat.Router) {
 //TempPassword expires in a few minutes
 //RealPassword is encrypted as SHA-1 when stored in the database
 type User struct {
-	ID           bson.ObjectId `bson:"_id" json:"id"`
+	ID           bson.ObjectId `bson:"_id" json:"_id"`
 	Name         string
 	Password     string
 	TempPassword string
@@ -166,7 +166,7 @@ func registerHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, fmt.Sprintf("Invalid JSON: %v", err.Error()), http.StatusBadRequest)
 		return
 	}
-	log.Debug.Printf("Register: %+v", user)
+	log.Debug.Printf("Register: user.Name=%s", user.Name)
 
 	//validate reqData for this operation
 	if user.Name == "" {

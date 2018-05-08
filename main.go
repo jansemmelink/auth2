@@ -10,8 +10,10 @@ import (
 
 	logger "bitbucket.org/conorit/golib-logger"
 	pidfile "bitbucket.org/conorit/golib-pidfile"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/pat"
 	"github.com/jansemmelink/auth2/auth"
+	"github.com/jansemmelink/auth2/item"
 )
 
 var (
@@ -44,6 +46,16 @@ func app() http.Handler {
 	r := pat.New()
 	r.Options("/", corsHandler)
 	auth.AddAuthRoutes(r)
+	item.AddItemRoutes(r, "person", item.Person{})
+
+	//debug output for all routes... later use to document
+	r.Router.Walk(
+		func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+			tpl, _ := route.GetPathTemplate()
+			met, _ := route.GetMethods()
+			log.Debug.Printf("%v %v", tpl, met)
+			return nil
+		})
 	return contentType(r)
 }
 
@@ -81,7 +93,7 @@ Date: Thu, 12 Oct 2017 05:22:13 GMT
 Content-Length: 0
 */
 func corsHandler(res http.ResponseWriter, req *http.Request) {
-	log.Info.Printf("CORS HANDLER...")
+	log.Trace.Printf("CORS HANDLER...")
 	res.Header().Add("Content-Type", "application/json")
 	if origin := req.Header.Get("Origin"); origin != "" {
 		res.Header().Set("Access-Control-Allow-Origin", "*")

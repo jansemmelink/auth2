@@ -9,8 +9,8 @@ import (
 //Session represents a user session after login
 type Session struct {
 	//public: stored in DB
-	ID        bson.ObjectId `bson:"_id" json:"id"`
-	UserID    bson.ObjectId `bson:"user_id" json:"user_id"`
+	ID        bson.ObjectId `bson:"_id" json:"_id"`
+	UserID    bson.ObjectId `bson:"_user_id" json:"_user_id"`
 	StartTime time.Time
 	LastTime  time.Time
 	Ended     bool

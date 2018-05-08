@@ -33,6 +33,7 @@ function error()
 host="localhost"
 port="3005"
 email="test@conor.co.za"
+personNames=("John" "F" "Kennedy")
 password="Kop4raem"
 logout_delay=2
 function usage() {
@@ -126,13 +127,20 @@ function api()
 # we know the user already exists
 #---------------------------------------------------
 
+
+# write bash array of names into string '"A","B","C"'
+namesJSONArray=""
+for n in ${personNames[*]}; do namesJSONArray="${namesJSONArray},\"${n}\""; done
+namesJSONArray=${namesJSONArray:1}
+debug "namesJSONArray=${namesJSONArray}"
+
 #---------------------------------------------------
 # register the user using email as the user's name
 # output is id and temp password
 #---------------------------------------------------
 verbose "Registering ${email} ..."
 t=$(mktemp)
-echo "{\"name\":\"${email}\"}" > ${t}
+echo "{\"Name\":\"${email}\"}" > ${t}
 debug "user data in file ${t}: $(cat ${t})"
 
 register_response=$(api POST "${addr}/auth/register" ${t})
@@ -144,10 +152,27 @@ then
 	#-------------------------------------
 	# registration succeeded with code 200
 	#-------------------------------------
-	id=$(echo ${register_response} | jq '.id' | sed "s/\"//g")
+	_user_id=$(echo ${register_response} | jq '._id' | sed "s/\"//g")
 	TempPassword=$(echo ${register_response} | jq '.TempPassword' | sed "s/\"//g")
 
-	verbose "Registered user.id=${id} TempPassword=${TempPassword}"
+	verbose "Registered user._id=${_user_id} TempPassword=${TempPassword}"
+
+	#-------------------------------------
+	# also create the person for this user
+	#-------------------------------------
+	echo "{\"_user_id\":\"${_user_id}\",\"Names\":[${namesJSONArray}]}" > ${t}
+	debug "person data in file ${t}: $(cat ${t})"
+	person_response=$(api POST "${addr}/person" ${t})
+	http_code=${person_response%%,*}
+	person_response=${person_response#*,}
+	debug "http_code=${http_code} response=${person_response}"
+	if [ ${http_code} -eq 200 ]
+	then
+		_person_id=$(echo ${person_response} | jq '._id' | sed "s/\"//g")
+		verbose "Created person._id=${_person_id}"
+	else
+		error "Failed to created person: HTTP=${http_code}: ${person_response}"
+	fi
 
 	#--------------------------------------------------
 	# activate with email and TempPassword added to activation url
@@ -159,9 +184,9 @@ then
 	debug "http_code=${http_code} response=${activate_res}"
 
 	[ ${http_code} -ne 200 ] && error "Failed to activate: ${activate_res}"
-	sid=$(echo ${activate_res} | jq '.id' | sed "s/\"//g")
+	_session_id=$(echo ${activate_res} | jq '._id' | sed "s/\"//g")
 
-	verbose "Activated and logged in user: session.id==${sid}"
+	verbose "Activated and logged in user: session.id==${_session_id}"
 else
 	#----------------------------------------------------
 	# registration failed
@@ -181,9 +206,10 @@ else
 		debug "http_code=${http_code} response=${login_res}"
 		
 		[ ${http_code} -ne 200 ] && error "Failed to login: ${login_res}"
-		sid=$(echo ${login_res} | jq '.id' | sed "s/\"//g")
+		_session_id=$(echo ${login_res} | jq '._id' | sed "s/\"//g")
+		_user_id=$(echo ${login_res} | jq '._user_id' | sed "s/\"//g")
 
-		verbose "Logged in user: session.id==${sid}"
+		verbose "Logged in user: session.id==${_session_id}"
 	else
 		error "Registration failed: HTTP ${http_code}: ${register_response}"
 	fi
@@ -202,9 +228,9 @@ do
 	let logout_delay=logout_delay-1
 done
 
-api GET "${addr}/auth/logout?id=${sid}"
-[ $? -ne 0 ] && error "Failed to logout from session.id=${sid}"
-verbose "Logged out of session.id=${sid}"
+api GET "${addr}/auth/logout?id=${_session_id}"
+[ $? -ne 0 ] && error "Failed to logout from session.id=${_session_id}"
+verbose "Logged out of session.id=${_session_id}"
 
 if [ ! -z "${t}" ]; then rm -f ${t}; unset t; fi
 verbose "Done"
